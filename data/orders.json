@@ -1,0 +1,52 @@
+[
+  {
+    "order_id": "O20260513001",
+    "store": "小龙虾人民广场店",
+    "channel": "美团",
+    "product": "十三香小龙虾",
+    "quantity": 2,
+    "amount": 176,
+    "order_time": "2026-05-13 12:18:00",
+    "status": "completed"
+  },
+  {
+    "order_id": "O20260513002",
+    "store": "小龙虾人民广场店",
+    "channel": "饿了么",
+    "product": "蒜蓉小龙虾",
+    "quantity": 1,
+    "amount": 98,
+    "order_time": "2026-05-13 18:35:00",
+    "status": "completed"
+  },
+  {
+    "order_id": "O20260513003",
+    "store": "小龙虾人民广场店",
+    "channel": "堂食",
+    "product": "十三香小龙虾",
+    "quantity": 3,
+    "amount": 264,
+    "order_time": "2026-05-13 19:42:00",
+    "status": "completed"
+  },
+  {
+    "order_id": "O20260513004",
+    "store": "小龙虾人民广场店",
+    "channel": "美团",
+    "product": "冰镇小龙虾",
+    "quantity": 1,
+    "amount": 128,
+    "order_time": "2026-05-13 22:10:00",
+    "status": "completed"
+  },
+  {
+    "order_id": "O20260513005",
+    "store": "小龙虾人民广场店",
+    "channel": "堂食",
+    "product": "小龙虾拌面",
+    "quantity": 2,
+    "amount": 76,
+    "order_time": "2026-05-13 13:05:00",
+    "status": "completed"
+  }
+]

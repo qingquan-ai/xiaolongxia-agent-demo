@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>小龙虾 AI 自动运营中控台</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    {% set order_summary = order_analysis.summary %}
+    {% set reputation_summary = reputation_analysis.summary %}
+    {% if reputation_summary.risk_level == "high" %}
+      {% set risk_label = "高风险" %}
+      {% set risk_note = "差评和风险反馈偏多，今天需要优先处理。" %}
+    {% elif reputation_summary.risk_level == "medium" %}
+      {% set risk_label = "1 条差评待处理" %}
+      {% set risk_note = "已有低分或敏感反馈，建议今天先回复并同步后厨。" %}
+    {% else %}
+      {% set risk_label = "较平稳" %}
+      {% set risk_note = "暂时没有明显集中差评，继续保持出餐和口味稳定。" %}
+    {% endif %}
+
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <h1>小龙虾 AI 自动运营中控台</h1>
+          <p class="summary">
+            自动汇总订单、评论和竞品信息，生成每日经营日报和改进建议。
+          </p>
+        </div>
+        <div class="status">
+          <span>今日经营数据</span>
+          <time id="today-date" datetime="2026-05-14">2026-05-14｜09:00更新</time>
+          <small>订单 / 评论 / 竞品信息已同步</small>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <span class="label">今日订单</span>
+          <h2>{{ order_summary.total_orders }} 单</h2>
+          <p>
+            今天收入 {{ order_summary.total_revenue }} 元，客单价 {{ order_summary.average_order_value }} 元。
+            卖得最好的是{{ order_summary.top_product or "暂未统计" }}。
+          </p>
+          <span class="card-note">高峰时段：午市 11:30-13:30，晚市 18:00-20:30，夜宵 21:30-23:30</span>
+        </article>
+
+        <article class="card">
+          <span class="label">舆情风险</span>
+          <h2>{{ risk_label }}</h2>
+          <p>
+            今天收到 4 条评论，其中 1 条低分评价，问题集中在出餐慢、口味不够入味、分量偏少。
+            建议今天先完成差评回复，并同步后厨复查。
+          </p>
+          <span class="card-note">关键词：{{ reputation_summary.risk_keywords | join("、") or "暂无明显风险词" }}</span>
+        </article>
+
+        <article class="card">
+          <span class="label">今日日报</span>
+          <h2>已生成</h2>
+          <p>经营概况、问题提醒、竞品观察和建议动作已生成，可直接查看。</p>
+          <a class="card-link" href="#daily-brief">查看完整日报</a>
+        </article>
+
+        <article class="card">
+          <span class="label">飞书消息助手</span>
+          <h2>准备接入</h2>
+          <p>接入后，可在飞书群发送“生成今日日报”，系统自动返回经营简报。</p>
+          <span class="card-note">适合开店前、晚高峰前快速查看。</span>
+        </article>
+      </section>
+
+      <section class="panel" id="daily-brief">
+        <div class="panel-heading">
+          <span class="label">今日日报</span>
+        </div>
+
+        <div class="report">
+          <p class="daily-focus">
+            今日重点：订单表现正常，但差评集中在出餐慢和口味不稳定。建议今天优先完成差评回复，并提前做好晚市、夜宵备货。
+          </p>
+
+          <section class="report-section">
+            <h2>今日经营概况</h2>
+            <p>
+              今天一共完成 {{ order_summary.total_orders }} 单，收入 {{ order_summary.total_revenue }} 元，
+              客单价 {{ order_summary.average_order_value }} 元。主卖口味是{{ order_summary.top_product or "暂未统计" }}，
+              订单高峰主要在{{ order_summary.peak_periods | join("、") or "暂未形成明显高峰" }}。
+            </p>
+          </section>
+
+          <section class="report-section">
+            <h2>发现的问题</h2>
+            <p>
+              {% if reputation_summary.risk_keywords %}
+                评论里提到了{{ reputation_summary.risk_keywords | join("、") }}，说明顾客对口味、出餐或分量已经有感受。
+                目前有 {{ reputation_summary.negative_comments }} 条差评，今天先把低分评价回复掉，再把问题同步到后厨和前厅。
+              {% else %}
+                今天没有明显集中风险词，评论整体还算平稳。继续盯住出餐速度和口味稳定，避免晚市忙起来后体验下滑。
+              {% endif %}
+            </p>
+          </section>
+
+          <section class="report-section">
+            <h2>竞品观察</h2>
+            <p>
+              {% if competitors %}
+                {{ competitors[0].name }}在{{ competitors[0].platform }}上主推{{ competitors[0].promotion }}，
+                热卖{{ competitors[0].hot_product }}。
+                {% if competitors | length > 1 %}
+                  {{ competitors[1].name }}也在推{{ competitors[1].promotion }}，{{ competitors[1].note }}。
+                {% endif %}
+                明天可以重点观察套餐价和夜宵时段的下单变化。
+              {% else %}
+                今天暂时没有新的竞品信息，先按现有热销口味和门店节奏推进。
+              {% endif %}
+            </p>
+          </section>
+
+          <section class="report-section">
+            <h2>建议动作</h2>
+            <ul class="action-list">
+              <li>【后厨】高峰前提前备好{{ order_summary.top_product or "主卖口味" }}，减少等餐和临时补货。</li>
+              <li>【前厅】优先处理低分评论，回复要具体到口味、出餐速度和补偿动作。</li>
+              <li>【运营】观察周边门店套餐促销，必要时上线双人套餐或夜宵加购活动。</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script>
+      const todayDate = document.getElementById("today-date");
+      if (todayDate) {
+        const today = new Date();
+        const formatted = [
+          today.getFullYear(),
+          String(today.getMonth() + 1).padStart(2, "0"),
+          String(today.getDate()).padStart(2, "0"),
+        ].join("-");
+        todayDate.dateTime = formatted;
+        todayDate.textContent = `${formatted}｜09:00更新`;
+      }
+    </script>
+  </body>
+</html>

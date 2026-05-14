@@ -1,0 +1,38 @@
+[
+  {
+    "comment_id": "C20260513001",
+    "platform": "大众点评",
+    "store": "小龙虾人民广场店",
+    "rating": 2,
+    "content": "虾不够入味，上菜也有点慢",
+    "created_at": "2026-05-13 19:20:00",
+    "replied": false
+  },
+  {
+    "comment_id": "C20260513002",
+    "platform": "美团",
+    "store": "小龙虾人民广场店",
+    "rating": 5,
+    "content": "十三香很好吃，虾很新鲜",
+    "created_at": "2026-05-13 20:05:00",
+    "replied": true
+  },
+  {
+    "comment_id": "C20260513003",
+    "platform": "饿了么",
+    "store": "小龙虾人民广场店",
+    "rating": 4,
+    "content": "包装不错，送到还是热的",
+    "created_at": "2026-05-13 21:15:00",
+    "replied": true
+  },
+  {
+    "comment_id": "C20260513004",
+    "platform": "大众点评",
+    "store": "小龙虾人民广场店",
+    "rating": 3,
+    "content": "味道可以，就是分量有点少",
+    "created_at": "2026-05-13 22:02:00",
+    "replied": false
+  }
+]

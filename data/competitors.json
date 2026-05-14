@@ -1,0 +1,18 @@
+[
+  {
+    "name": "隔壁虾王",
+    "platform": "美团",
+    "promotion": "满100减20",
+    "hot_product": "蒜蓉小龙虾",
+    "rating": 4.7,
+    "note": "近期主推夜宵套餐"
+  },
+  {
+    "name": "阿强龙虾馆",
+    "platform": "大众点评",
+    "promotion": "双人套餐限时 168 元",
+    "hot_product": "十三香小龙虾",
+    "rating": 4.6,
+    "note": "评论区强调出餐快"
+  }
+]
