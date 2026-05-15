@@ -112,9 +112,11 @@ def _generate_openrouter_suggestions(task: str, context: dict[str, Any]) -> list
         "max_tokens": 500,
     }
     headers = {
-        "Authorization": f"Bearer {settings.openrouter_api_key}",
-        "Content-Type": "application/json",
-    }
+    "Authorization": f"Bearer {settings.openrouter_api_key}",
+    "Content-Type": "application/json",
+    "HTTP-Referer": "http://124.222.231.10:8000",
+    "X-Title": "xiaolongxia-agent-demo",
+}
 
     with httpx.Client(timeout=settings.llm_timeout_seconds) as client:
         response = client.post(url, headers=headers, json=payload)
