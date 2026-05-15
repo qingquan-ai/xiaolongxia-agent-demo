@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 LATEST_REPORT_FILE = "latest_report.json"
 LATEST_REPORT_DATA_VERSION = 1
+REPORT_HISTORY_FILE = "report_history.json"
+REPORT_HISTORY_LIMIT = 20
 
 
 def _safe_data_path(file_name: str) -> Path:
@@ -45,6 +47,10 @@ def load_competitors() -> list[dict[str, Any]]:
 
 def _latest_report_cache_path() -> Path:
     return _safe_data_path(LATEST_REPORT_FILE)
+
+
+def _report_history_path() -> Path:
+    return _safe_data_path(REPORT_HISTORY_FILE)
 
 
 def _validate_latest_report_cache(cache: Any) -> dict[str, Any]:
@@ -127,4 +133,62 @@ def save_latest_report_cache(
         return False
 
     logger.info("Latest report cache saved source=%s", source)
+    return True
+
+
+def append_report_history(
+    *,
+    source: str,
+    generated_at: str,
+    order_analysis: dict[str, Any],
+    reputation_analysis: dict[str, Any],
+    competitors: list[dict[str, Any]],
+    report: dict[str, Any],
+) -> bool:
+    history_path = _report_history_path()
+    tmp_path = _safe_data_path(f"{REPORT_HISTORY_FILE}.tmp")
+    entry = {
+        "data_version": LATEST_REPORT_DATA_VERSION,
+        "generated_at": generated_at,
+        "source": source,
+        "order_analysis": order_analysis,
+        "reputation_analysis": reputation_analysis,
+        "competitors": competitors,
+        "report": report,
+    }
+
+    history: list[Any] = []
+    if history_path.exists():
+        try:
+            with history_path.open("r", encoding="utf-8") as file:
+                existing_history = json.load(file)
+            if isinstance(existing_history, list):
+                history = existing_history
+            else:
+                logger.warning("Report history invalid reason=not_list")
+        except json.JSONDecodeError:
+            logger.warning("Report history invalid reason=invalid_json")
+        except OSError as exc:
+            logger.warning(
+                "Report history invalid reason=read_error error_type=%s",
+                exc.__class__.__name__,
+            )
+
+    history.insert(0, entry)
+    history = history[:REPORT_HISTORY_LIMIT]
+
+    try:
+        with tmp_path.open("w", encoding="utf-8") as file:
+            json.dump(history, file, ensure_ascii=False, indent=2)
+            file.write("\n")
+        os.replace(tmp_path, history_path)
+    except (OSError, TypeError) as exc:
+        logger.warning(
+            "Report history save failed source=%s error_type=%s",
+            source,
+            exc.__class__.__name__,
+        )
+        return False
+
+    logger.info("Report history saved source=%s count=%s", source, len(history))
     return True

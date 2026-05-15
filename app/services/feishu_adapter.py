@@ -11,6 +11,7 @@ from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
 from app.services.feishu_sender import send_feishu_text
 from app.services.json_store import (
+    append_report_history,
     load_comments,
     load_competitors,
     load_orders,
@@ -119,16 +120,29 @@ def generate_and_push_daily_report(source: str) -> dict[str, Any]:
         reputation_analysis,
         competitors,
     )
+    generated_at = _now_iso()
     save_latest_report_cache(
         source=source,
-        generated_at=_now_iso(),
+        generated_at=generated_at,
+        order_analysis=order_analysis,
+        reputation_analysis=reputation_analysis,
+        competitors=competitors,
+        report=result,
+    )
+    append_report_history(
+        source=source,
+        generated_at=generated_at,
         order_analysis=order_analysis,
         reputation_analysis=reputation_analysis,
         competitors=competitors,
         report=result,
     )
     try:
-        send_feishu_text(result["markdown"])
+        markdown = result.get("markdown") if isinstance(result, dict) else None
+        if isinstance(markdown, str) and markdown.strip():
+            send_feishu_text(markdown)
+        else:
+            logger.warning("Feishu push skipped reason=missing_report_markdown")
     except Exception as exc:
         logger.warning(
             "Feishu push skipped reason=unexpected_error error_type=%s",

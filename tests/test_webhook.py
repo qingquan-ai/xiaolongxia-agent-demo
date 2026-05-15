@@ -31,6 +31,7 @@ def test_feishu_webhook_generates_daily_report():
 
     assert response.status_code == 200
     body = response.json()
+    assert set(body) == {"received", "intent", "reply", "result"}
     assert body["received"] is True
     assert body["intent"] == "daily_report"
     assert "已生成今日运营日报" in body["reply"]

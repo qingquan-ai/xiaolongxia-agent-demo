@@ -8,3 +8,6 @@ __pycache__/
 .mypy_cache/
 *.log
 data/latest_report.json
+data/latest_report.json.tmp
+data/report_history.json
+data/report_history.json.tmp
