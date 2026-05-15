@@ -4,6 +4,7 @@ from typing import Any
 from app.models.schemas import FeishuWebhookPayload
 from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
+from app.services.feishu_sender import send_feishu_text
 from app.services.json_store import load_comments, load_competitors, load_orders
 from app.services.reputation_agent import analyze_reputation
 
@@ -45,6 +46,13 @@ def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
             reputation_analysis,
             load_competitors(),
         )
+        try:
+            send_feishu_text(result["markdown"])
+        except Exception as exc:
+            logger.warning(
+                "Feishu push skipped reason=unexpected_error error_type=%s",
+                exc.__class__.__name__,
+            )
         reply = "已生成今日运营日报，可复制到飞书群"
     else:
         result = {
