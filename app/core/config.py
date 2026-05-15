@@ -25,6 +25,10 @@ class Settings:
         os.getenv("OPENROUTER_MODEL") or "openai/gpt-4o-mini"
     )
     llm_timeout_seconds: float = 20.0
+    feishu_verification_token: str = os.getenv(
+        "FEISHU_VERIFICATION_TOKEN",
+        "",
+    ).strip()
 
     @property
     def is_openrouter_enabled(self) -> bool:

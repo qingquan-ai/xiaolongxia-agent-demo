@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,7 +13,11 @@ from app.core.logging import setup_logging
 from app.models.schemas import FeishuWebhookPayload
 from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
-from app.services.feishu_adapter import handle_feishu_webhook
+from app.services.feishu_adapter import (
+    FeishuEventForbiddenError,
+    handle_feishu_event_subscription,
+    handle_feishu_webhook,
+)
 from app.services.json_store import (
     load_comments,
     load_competitors,
@@ -151,3 +155,21 @@ def generate_report():
 @app.post("/api/webhook/feishu")
 def feishu_webhook(payload: FeishuWebhookPayload):
     return handle_feishu_webhook(payload)
+
+
+@app.post("/api/feishu/events")
+async def feishu_events(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        logger.warning("Feishu event ignored reason=invalid_json")
+        return {"ok": True, "ignored": True}
+
+    if not isinstance(body, dict):
+        logger.warning("Feishu event ignored reason=invalid_body")
+        return {"ok": True, "ignored": True}
+
+    try:
+        return handle_feishu_event_subscription(body, request.headers)
+    except FeishuEventForbiddenError as exc:
+        raise HTTPException(status_code=403, detail="forbidden") from exc
