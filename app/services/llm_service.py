@@ -1,6 +1,5 @@
 import logging
 import json
-import re
 from typing import Any
 
 import httpx
@@ -14,6 +13,12 @@ logger = logging.getLogger(__name__)
 class _OpenRouterResponseError(Exception):
     def __init__(self, status_code: int) -> None:
         self.status_code = status_code
+
+
+class LLMOutputParseError(ValueError):
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(reason)
 
 
 def get_ai_mode() -> str:
@@ -31,25 +36,31 @@ def generate_mock_suggestions(task: str, context: dict[str, Any]) -> list[str]:
             suggestions = _generate_openrouter_suggestions(task, context)
         except _OpenRouterResponseError as exc:
             logger.warning(
-                "OpenRouter request returned non-2xx status task=%s status_code=%s fallback=mock",
+                "OpenRouter request returned non-2xx status task=%s status_code=%s fallback=mock reason=http_status",
                 task,
                 exc.status_code,
             )
         except httpx.TimeoutException:
             logger.warning(
-                "OpenRouter request timed out task=%s timeout_seconds=%s fallback=mock",
+                "OpenRouter request timed out task=%s timeout_seconds=%s fallback=mock reason=timeout",
                 task,
                 settings.llm_timeout_seconds,
             )
         except httpx.RequestError as exc:
             logger.warning(
-                "OpenRouter request failed task=%s error_type=%s fallback=mock",
+                "OpenRouter request failed task=%s error_type=%s fallback=mock reason=request_error",
                 task,
                 exc.__class__.__name__,
             )
+        except LLMOutputParseError as exc:
+            logger.warning(
+                "OpenRouter output parse failed task=%s fallback=mock reason=%s",
+                task,
+                exc.reason,
+            )
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             logger.warning(
-                "OpenRouter response parse failed task=%s error_type=%s fallback=mock",
+                "OpenRouter response structure invalid task=%s error_type=%s fallback=mock reason=invalid_response",
                 task,
                 exc.__class__.__name__,
             )
@@ -109,27 +120,33 @@ def _generate_openrouter_suggestions(task: str, context: dict[str, Any]) -> list
         "model": settings.openrouter_model,
         "messages": _build_messages(task, context),
         "temperature": 0.3,
-        "max_tokens": 500,
+        "max_tokens": 300,
     }
     headers = {
-    "Authorization": f"Bearer {settings.openrouter_api_key}",
-    "Content-Type": "application/json",
-    "HTTP-Referer": "http://124.222.231.10:8000",
-    "X-Title": "xiaolongxia-agent-demo",
-}
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://124.222.231.10:8000",
+        "X-Title": "xiaolongxia-agent-demo",
+    }
 
     with httpx.Client(timeout=settings.llm_timeout_seconds) as client:
         response = client.post(url, headers=headers, json=payload)
-        logger.warning("OpenRouter response body=%s", response.text)
 
     if not 200 <= response.status_code < 300:
         raise _OpenRouterResponseError(response.status_code)
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError:
+        raise LLMOutputParseError("invalid_response_json") from None
+
     content = data["choices"][0]["message"]["content"]
+    if not isinstance(content, str):
+        raise LLMOutputParseError("empty_content")
+    if not content.strip():
+        raise LLMOutputParseError("empty_content")
+
     suggestions = _parse_suggestions(content)
-    if not suggestions:
-        raise ValueError("empty suggestions")
     return suggestions
 
 
@@ -154,7 +171,7 @@ def _build_messages(task: str, context: dict[str, Any]) -> list[dict[str, str]]:
             "content": (
                 f"任务：{task_name}\n"
                 f"门店数据：{context_json}\n"
-                "请只返回 JSON 字符串数组，包含 2 到 3 条建议。"
+                "请只返回 JSON 字符串数组，最多 3 条建议，每条不超过 50 个中文字符。"
                 "示例：[\"建议一\", \"建议二\"]。不要返回 Markdown。"
             ),
         },
@@ -162,47 +179,35 @@ def _build_messages(task: str, context: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _parse_suggestions(content: Any) -> list[str]:
-    if isinstance(content, list):
-        text = "\n".join(str(item) for item in content)
-    else:
-        text = str(content)
+    if not isinstance(content, str):
+        raise LLMOutputParseError("empty_content")
 
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
+    cleaned = content.strip()
+    if not cleaned:
+        raise LLMOutputParseError("empty_content")
 
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
-        parsed = None
+        raise LLMOutputParseError("invalid_json") from None
 
-    if isinstance(parsed, list):
-        return _clean_suggestions(parsed)
+    if not isinstance(parsed, list):
+        raise LLMOutputParseError("not_list")
+    if not parsed:
+        raise LLMOutputParseError("empty_list")
 
-    if isinstance(parsed, dict):
-        for key in ("suggestions", "actions", "items"):
-            value = parsed.get(key)
-            if isinstance(value, list):
-                return _clean_suggestions(value)
-
-    lines = []
-    for line in cleaned.splitlines():
-        item = line.strip()
-        if not item:
-            continue
-        item = re.sub(r"^[-*•]\s*", "", item)
-        item = re.sub(r"^\d+[\.\)、]\s*", "", item)
-        if item:
-            lines.append(item)
-
-    return _clean_suggestions(lines)
+    suggestions = _clean_suggestions(parsed)
+    if not suggestions:
+        raise LLMOutputParseError("no_string_items")
+    return suggestions
 
 
 def _clean_suggestions(items: list[Any]) -> list[str]:
     suggestions = []
     for item in items:
-        suggestion = str(item).strip().strip('"').strip("'")
+        if not isinstance(item, str):
+            continue
+        suggestion = item.strip()
         if suggestion:
             suggestions.append(suggestion)
     return suggestions[:3]
