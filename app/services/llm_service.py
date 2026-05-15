@@ -120,6 +120,7 @@ def _generate_openrouter_suggestions(task: str, context: dict[str, Any]) -> list
 
     with httpx.Client(timeout=settings.llm_timeout_seconds) as client:
         response = client.post(url, headers=headers, json=payload)
+        logger.warning("OpenRouter response body=%s", response.text)
 
     if not 200 <= response.status_code < 300:
         raise _OpenRouterResponseError(response.status_code)
