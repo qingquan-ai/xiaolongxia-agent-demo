@@ -1,15 +1,26 @@
 import logging
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app.models.schemas import FeishuWebhookPayload
 from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
 from app.services.feishu_sender import send_feishu_text
-from app.services.json_store import load_comments, load_competitors, load_orders
+from app.services.json_store import (
+    load_comments,
+    load_competitors,
+    load_orders,
+    save_latest_report_cache,
+)
 from app.services.reputation_agent import analyze_reputation
 
 
 logger = logging.getLogger(__name__)
+
+
+def _now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
 
 
 def detect_intent(text: str) -> str:
@@ -41,10 +52,19 @@ def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
     elif intent == "daily_report":
         order_analysis = analyze_orders(load_orders())
         reputation_analysis = analyze_reputation(load_comments())
+        competitors = load_competitors()
         result = generate_daily_report(
             order_analysis,
             reputation_analysis,
-            load_competitors(),
+            competitors,
+        )
+        save_latest_report_cache(
+            source="feishu_webhook",
+            generated_at=_now_iso(),
+            order_analysis=order_analysis,
+            reputation_analysis=reputation_analysis,
+            competitors=competitors,
+            report=result,
         )
         try:
             send_feishu_text(result["markdown"])

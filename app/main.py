@@ -1,5 +1,7 @@
 import logging
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -12,7 +14,13 @@ from app.models.schemas import FeishuWebhookPayload
 from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
 from app.services.feishu_adapter import handle_feishu_webhook
-from app.services.json_store import load_comments, load_competitors, load_orders
+from app.services.json_store import (
+    load_comments,
+    load_competitors,
+    load_latest_report_cache,
+    load_orders,
+    save_latest_report_cache,
+)
 from app.services.reputation_agent import analyze_reputation
 
 
@@ -26,7 +34,24 @@ app = FastAPI(title=settings.app_name, version=settings.app_version)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
-def _build_dashboard_context() -> dict:
+def _now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
+
+
+def _dashboard_context_from_cache(cache: dict) -> dict:
+    logger.info("Homepage dashboard source=cache")
+    return {
+        "app_name": settings.app_name,
+        "llm_mode": settings.llm_mode,
+        "order_analysis": cache["order_analysis"],
+        "reputation_analysis": cache["reputation_analysis"],
+        "competitors": cache["competitors"],
+        "report": cache["report"],
+    }
+
+
+def _build_live_dashboard_context(reason: str) -> dict:
+    logger.info("Homepage dashboard source=live reason=%s", reason)
     order_analysis = analyze_orders(load_orders())
     reputation_analysis = analyze_reputation(load_comments())
     competitors = load_competitors()
@@ -34,6 +59,14 @@ def _build_dashboard_context() -> dict:
         order_analysis,
         reputation_analysis,
         competitors,
+    )
+    save_latest_report_cache(
+        source="homepage_live",
+        generated_at=_now_iso(),
+        order_analysis=order_analysis,
+        reputation_analysis=reputation_analysis,
+        competitors=competitors,
+        report=report,
     )
     return {
         "app_name": settings.app_name,
@@ -43,6 +76,13 @@ def _build_dashboard_context() -> dict:
         "competitors": competitors,
         "report": report,
     }
+
+
+def _build_dashboard_context() -> dict:
+    cache = load_latest_report_cache()
+    if cache is not None:
+        return _dashboard_context_from_cache(cache)
+    return _build_live_dashboard_context("cache_unavailable")
 
 
 @app.get("/", response_class=HTMLResponse)
