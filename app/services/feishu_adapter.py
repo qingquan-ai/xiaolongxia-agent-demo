@@ -9,6 +9,11 @@ from app.core.config import settings
 from app.models.schemas import FeishuWebhookPayload
 from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
+from app.services.data_source import (
+    load_comments_data,
+    load_competitors_data,
+    load_orders_data,
+)
 from app.services.feishu_sender import send_feishu_text
 from app.services.json_store import (
     append_report_history,
@@ -182,9 +187,12 @@ def _send_help_commands() -> None:
 
 
 def generate_and_push_daily_report(source: str) -> dict[str, Any]:
-    order_analysis = analyze_orders(load_orders())
-    reputation_analysis = analyze_reputation(load_comments())
-    competitors = load_competitors()
+    orders = load_orders_data()
+    comments = load_comments_data()
+    competitors = load_competitors_data()
+
+    order_analysis = analyze_orders(orders)
+    reputation_analysis = analyze_reputation(comments)
     result = generate_daily_report(
         order_analysis,
         reputation_analysis,

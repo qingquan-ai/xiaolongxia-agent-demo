@@ -16,6 +16,7 @@ class Settings:
     app_name: str = "小龙虾 AI 自动运营中控台 Demo"
     app_version: str = "0.1.0"
     data_dir: Path = PROJECT_ROOT / "data"
+    data_source: str = os.getenv("DATA_SOURCE", "json").strip().lower()
     llm_mode: str = os.getenv("LLM_MODE", "mock").strip().lower()
     openrouter_api_key: str = os.getenv("OPENROUTER_API_KEY", "").strip()
     openrouter_base_url: str = (
