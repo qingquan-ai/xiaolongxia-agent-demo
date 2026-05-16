@@ -14,6 +14,7 @@ from app.services.json_store import (
     append_report_history,
     load_comments,
     load_competitors,
+    load_latest_report_cache,
     load_orders,
     save_latest_report_cache,
 )
@@ -23,6 +24,35 @@ from app.services.reputation_agent import analyze_reputation
 logger = logging.getLogger(__name__)
 
 MAX_PROCESSED_EVENT_IDS = 500
+LATEST_REPORT_EMPTY_MESSAGE = "暂无日报，请先发送‘生成今日日报’。"
+HELP_COMMANDS_MESSAGE = "支持的指令：\n- 生成今日日报\n- 查看最新日报\n- 查看帮助"
+HELP_INTENT_KEYWORDS = (
+    "帮助",
+    "查看帮助",
+    "你能干什么",
+    "你有什么用",
+    "怎么用你",
+    "你会什么",
+    "使用说明",
+    "help",
+)
+LATEST_REPORT_INTENT_KEYWORDS = (
+    "查看最新日报",
+    "最新日报",
+    "最近日报",
+    "再发一下",
+    "上一份日报",
+    "刚才那份日报",
+)
+DAILY_REPORT_INTENT_KEYWORDS = (
+    "生成今日日报",
+    "生成日报",
+    "经营日报",
+    "今天生意怎么样",
+    "今天经营情况",
+    "汇总一下今天",
+    "帮我看下今天",
+)
 _processed_event_ids: set[str] = set()
 _processed_event_id_queue: deque[str] = deque()
 
@@ -111,6 +141,32 @@ def _extract_message_text(body: dict[str, Any]) -> str:
     return str(text) if text else ""
 
 
+def _latest_report_message() -> str:
+    latest_report = load_latest_report_cache()
+    if latest_report is None:
+        return LATEST_REPORT_EMPTY_MESSAGE
+
+    report = latest_report.get("report")
+    if not isinstance(report, dict):
+        logger.warning("Feishu latest report skipped reason=report_not_dict")
+        return LATEST_REPORT_EMPTY_MESSAGE
+
+    markdown = report.get("markdown")
+    if not isinstance(markdown, str) or not markdown.strip():
+        logger.warning("Feishu latest report skipped reason=missing_markdown")
+        return LATEST_REPORT_EMPTY_MESSAGE
+
+    return markdown
+
+
+def _send_latest_report() -> None:
+    send_feishu_text(_latest_report_message())
+
+
+def _send_help_commands() -> None:
+    send_feishu_text(HELP_COMMANDS_MESSAGE)
+
+
 def generate_and_push_daily_report(source: str) -> dict[str, Any]:
     order_analysis = analyze_orders(load_orders())
     reputation_analysis = analyze_reputation(load_comments())
@@ -151,14 +207,25 @@ def generate_and_push_daily_report(source: str) -> dict[str, Any]:
     return result
 
 
+def _contains_any_keyword(text: str, keywords: tuple[str, ...]) -> bool:
+    normalized_text = text.lower()
+    return any(keyword.lower() in normalized_text for keyword in keywords)
+
+
 def detect_intent(text: str) -> str:
+    if _contains_any_keyword(text, HELP_INTENT_KEYWORDS):
+        return "help"
+    if _contains_any_keyword(text, LATEST_REPORT_INTENT_KEYWORDS):
+        return "latest_report"
+    if _contains_any_keyword(text, DAILY_REPORT_INTENT_KEYWORDS):
+        return "daily_report"
     if "日报" in text or "总结" in text:
         return "daily_report"
     if "舆情" in text or "差评" in text or "评论" in text:
         return "reputation"
     if "订单" in text or "数据" in text or "分析" in text:
         return "data_analysis"
-    return "help"
+    return "unknown"
 
 
 def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
@@ -180,15 +247,20 @@ def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
     elif intent == "daily_report":
         result = generate_and_push_daily_report(source="feishu_webhook")
         reply = "已生成今日运营日报，可复制到飞书群"
+    elif intent == "latest_report":
+        _send_latest_report()
+        result = {"sent": True}
+        reply = "已发送最新日报"
     else:
+        _send_help_commands()
         result = {
             "supported_commands": [
-                "生成今日小龙虾运营日报",
-                "查看订单数据分析",
-                "扫描差评舆情风险",
+                "生成今日日报",
+                "查看最新日报",
+                "查看帮助",
             ]
         }
-        reply = "模拟飞书协作虾已收到消息，请发送日报、订单分析或舆情扫描指令"
+        reply = "已发送帮助说明"
 
     logger.info("FeishuWebhook handled event_id=%s intent=%s", payload.event_id, intent)
     return {
@@ -231,15 +303,21 @@ def handle_feishu_event_subscription(
 
     try:
         text = _extract_message_text(body)
-        if "生成今日日报" not in text:
+        intent = detect_intent(text)
+        if intent == "help":
+            _send_help_commands()
+        elif intent == "latest_report":
+            _send_latest_report()
+        elif intent == "daily_report":
+            generate_and_push_daily_report(source="feishu_event")
+        else:
             logger.info(
-                "Feishu event ignored reason=unsupported_text event_id=%s event_type=%s",
+                "Feishu event ignored reason=unsupported_text event_id=%s event_type=%s intent=%s",
                 event_id or "missing",
                 event_type or "unknown",
+                intent,
             )
             return {"ok": True, "ignored": True}
-
-        generate_and_push_daily_report(source="feishu_event")
     except Exception as exc:
         logger.warning(
             "Feishu event sync handling failed event_id=%s error_type=%s",
