@@ -20,6 +20,10 @@ from app.services.feishu_adapter import (
     handle_feishu_event_subscription,
     handle_feishu_webhook,
 )
+from app.services.feishu_bitable_service import (
+    is_supported_bitable_table,
+    read_bitable_records,
+)
 from app.services.json_store import (
     load_comments,
     load_competitors,
@@ -405,6 +409,16 @@ def _validate_cron_secret(x_cron_secret: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid cron secret")
 
 
+def _validate_debug_secret(x_debug_secret: str | None) -> None:
+    if not settings.debug_api_secret:
+        logger.warning("Debug API secret check skipped reason=missing_config")
+        return
+
+    if x_debug_secret != settings.debug_api_secret:
+        logger.warning("Debug API rejected reason=invalid_secret")
+        raise HTTPException(status_code=401, detail="Invalid debug secret")
+
+
 @app.post("/api/reports/daily")
 def generate_report_for_cron(
     x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
@@ -418,6 +432,19 @@ def generate_report_for_cron(
         "source": "cron_daily",
         "message": "daily report generated and pushed",
     }
+
+
+@app.get("/api/debug/feishu-bitable/{table_name}")
+def debug_feishu_bitable(
+    table_name: str,
+    x_debug_secret: str | None = Header(default=None, alias="X-Debug-Secret"),
+):
+    _validate_debug_secret(x_debug_secret)
+    if not is_supported_bitable_table(table_name):
+        raise HTTPException(status_code=400, detail="Unsupported bitable table")
+
+    logger.info("Feishu bitable debug requested table=%s", table_name)
+    return read_bitable_records(table_name)
 
 
 @app.post("/api/webhook/feishu")

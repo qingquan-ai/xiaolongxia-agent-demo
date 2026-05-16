@@ -30,6 +30,22 @@ class Settings:
         "",
     ).strip()
     cron_secret: str = os.getenv("CRON_SECRET", "").strip()
+    debug_api_secret: str = os.getenv("DEBUG_API_SECRET", "").strip()
+    feishu_app_id: str = os.getenv("FEISHU_APP_ID", "").strip()
+    feishu_app_secret: str = os.getenv("FEISHU_APP_SECRET", "").strip()
+    feishu_bitable_app_token: str = os.getenv(
+        "FEISHU_BITABLE_APP_TOKEN",
+        "",
+    ).strip()
+    feishu_orders_table_id: str = os.getenv("FEISHU_ORDERS_TABLE_ID", "").strip()
+    feishu_comments_table_id: str = os.getenv(
+        "FEISHU_COMMENTS_TABLE_ID",
+        "",
+    ).strip()
+    feishu_competitors_table_id: str = os.getenv(
+        "FEISHU_COMPETITORS_TABLE_ID",
+        "",
+    ).strip()
 
     @property
     def is_openrouter_enabled(self) -> bool:
