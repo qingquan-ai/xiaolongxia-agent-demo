@@ -29,6 +29,7 @@ class Settings:
         "FEISHU_VERIFICATION_TOKEN",
         "",
     ).strip()
+    cron_secret: str = os.getenv("CRON_SECRET", "").strip()
 
     @property
     def is_openrouter_enabled(self) -> bool:

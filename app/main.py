@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,6 +16,7 @@ from app.services.daily_report_agent import generate_daily_report
 from app.services.data_analysis_agent import analyze_orders
 from app.services.feishu_adapter import (
     FeishuEventForbiddenError,
+    generate_and_push_daily_report,
     handle_feishu_event_subscription,
     handle_feishu_webhook,
 )
@@ -392,6 +393,31 @@ def generate_report():
     order_analysis = analyze_orders(load_orders())
     reputation_analysis = analyze_reputation(load_comments())
     return generate_daily_report(order_analysis, reputation_analysis, load_competitors())
+
+
+def _validate_cron_secret(x_cron_secret: str | None) -> None:
+    if not settings.cron_secret:
+        logger.warning("Cron daily report secret check skipped reason=missing_config")
+        return
+
+    if x_cron_secret != settings.cron_secret:
+        logger.warning("Cron daily report rejected reason=invalid_secret")
+        raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
+@app.post("/api/reports/daily")
+def generate_report_for_cron(
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+):
+    _validate_cron_secret(x_cron_secret)
+    logger.info("Cron daily report requested source=cron_daily")
+    generate_and_push_daily_report(source="cron_daily")
+    logger.info("Cron daily report finished source=cron_daily")
+    return {
+        "ok": True,
+        "source": "cron_daily",
+        "message": "daily report generated and pushed",
+    }
 
 
 @app.post("/api/webhook/feishu")
