@@ -5,8 +5,26 @@ from app.core.config import settings
 from app.main import app
 
 
+HELP_MESSAGE_EXPECTED_SNIPPETS = (
+    "我是小龙虾 AI 日报助手",
+    "自动汇总订单、评论和竞品信息",
+    "看今日订单、销售额、客单价和爆款产品",
+    "提醒差评、口味反馈、出餐慢等舆情风险",
+    "整理竞品促销和热卖品",
+    "给出明日备货、排班、差评回复和主推建议",
+    "每天 22:00 自动推送日报",
+    "今天生意怎么样",
+    "刚才那份日报再发一下",
+)
+
+
 def _set_feishu_verification_token(value: str) -> None:
     object.__setattr__(settings, "feishu_verification_token", value)
+
+
+def _assert_help_message(message: str) -> None:
+    for snippet in HELP_MESSAGE_EXPECTED_SNIPPETS:
+        assert snippet in message
 
 
 def _post_feishu_text(client: TestClient, event_id: str, text: str):
@@ -309,9 +327,7 @@ def test_feishu_event_sends_help_commands(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"ok": True, "handled": True}
     assert len(sent_messages) == 1
-    assert "生成今日日报" in sent_messages[0]
-    assert "查看最新日报" in sent_messages[0]
-    assert "查看帮助" in sent_messages[0]
+    _assert_help_message(sent_messages[0])
 
 
 @pytest.mark.parametrize(
@@ -355,9 +371,7 @@ def test_feishu_event_help_intent_keywords(monkeypatch, keyword):
     assert response.status_code == 200
     assert response.json() == {"ok": True, "handled": True}
     assert len(sent_messages) == 1
-    assert "生成今日日报" in sent_messages[0]
-    assert "查看最新日报" in sent_messages[0]
-    assert "查看帮助" in sent_messages[0]
+    _assert_help_message(sent_messages[0])
 
 
 @pytest.mark.parametrize(
@@ -476,7 +490,7 @@ def test_feishu_event_intent_priority_help_over_latest_and_daily(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {"ok": True, "handled": True}
     assert len(sent_messages) == 1
-    assert "查看帮助" in sent_messages[0]
+    _assert_help_message(sent_messages[0])
 
 
 def test_feishu_event_intent_priority_latest_over_daily(monkeypatch):

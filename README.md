@@ -66,21 +66,22 @@ curl -X POST "http://127.0.0.1:8000/api/webhook/feishu" \
 CRON_SECRET=请替换为足够长的随机密钥
 ```
 
-调用时通过请求头 `X-Cron-Secret` 传入密钥：
+服务器上建议让 crontab 调用脚本，不要在 crontab 里直接写一长串 `curl`。脚本会从 `/root/xiaolongxia-agent-demo/.env` 读取 `CRON_SECRET`，并把执行日志写入 `/root/xiaolongxia-agent-demo/cron_daily_report.log`。
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/reports/daily" ^
-  -H "X-Cron-Secret: 请替换为足够长的随机密钥"
+0 22 * * * /bin/bash /root/xiaolongxia-agent-demo/scripts/cron_daily_report.sh
 ```
 
-macOS / Linux:
+如果旧 crontab 里还有直接 `curl http://127.0.0.1:8000/api/reports/daily` 的任务，需要替换成上面的脚本调用，避免重复生成和重复推送。
+
+手动检查脚本时可以运行：
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/reports/daily" \
-  -H "X-Cron-Secret: 请替换为足够长的随机密钥"
+/bin/bash /root/xiaolongxia-agent-demo/scripts/cron_daily_report.sh
+tail -n 100 /root/xiaolongxia-agent-demo/cron_daily_report.log
 ```
 
-如果未配置 `CRON_SECRET`，本地测试会允许调用，但服务会记录 warning；生产环境不要空置。
+生产环境必须配置 `CRON_SECRET`。脚本读取不到 `CRON_SECRET` 时会直接失败退出，不会继续请求接口。
 
 ## 说明
 
