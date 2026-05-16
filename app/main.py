@@ -24,6 +24,7 @@ from app.services.feishu_bitable_service import (
     is_supported_bitable_table,
     read_bitable_records,
 )
+from app.services.feishu_bitable_transformer import convert_bitable_records
 from app.services.json_store import (
     load_comments,
     load_competitors,
@@ -445,6 +446,33 @@ def debug_feishu_bitable(
 
     logger.info("Feishu bitable debug requested table=%s", table_name)
     return read_bitable_records(table_name)
+
+
+@app.get("/api/debug/feishu-bitable/{table_name}/converted")
+def debug_feishu_bitable_converted(
+    table_name: str,
+    x_debug_secret: str | None = Header(default=None, alias="X-Debug-Secret"),
+):
+    _validate_debug_secret(x_debug_secret)
+    if not is_supported_bitable_table(table_name):
+        raise HTTPException(status_code=400, detail="Unsupported bitable table")
+
+    logger.info("Feishu bitable converted debug requested table=%s", table_name)
+    raw_result = read_bitable_records(table_name)
+    if not raw_result.get("ok"):
+        return raw_result
+
+    raw_records = raw_result.get("records")
+    raw_records = raw_records if isinstance(raw_records, list) else []
+    converted_records = convert_bitable_records(table_name, raw_records)
+    return {
+        "ok": True,
+        "source": "feishu_bitable",
+        "table": table_name,
+        "raw_record_count": len(raw_records),
+        "converted_count": len(converted_records),
+        "records": converted_records,
+    }
 
 
 @app.post("/api/webhook/feishu")
