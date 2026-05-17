@@ -1,30 +1,238 @@
-# 小龙虾 AI 自动运营中控台 Demo
+# 小龙虾 AI 自动运营助手
 
-一个最小可运行的 FastAPI Demo，用本地 JSON 数据模拟“小龙虾 AI 自动打工岗位”。
+小龙虾 AI 自动运营助手，是一个面向本地餐饮门店的 AI 自动日报工具。
 
-第一版包含：
+门店老板不需要每天手动整理订单、评论和竞品信息，只需要在飞书群里 @机器人，发送「生成今日日报」，系统就会自动读取飞书多维表格里的经营数据，生成一份包含经营概况、舆情风险、竞品观察和明日行动建议的日报，并推送回飞书群。
 
-- 首页 `/`
-- 健康检查 `/health`
-- FastAPI 文档 `/docs`
-- 数据分析虾
-- 舆情监控虾
-- 写日报虾
-- 模拟飞书 webhook：`POST /api/webhook/feishu`
+系统也支持每天定时自动推送经营日报，让老板不用主动触发，也能在固定时间收到当天经营重点。
 
-第一版默认使用 mock 模式，不接真实大模型、不接真实飞书、不接数据库。
+它不是单纯的技术玩具，而是一个“小龙虾门店 AI 自动运营助手”的最小可用原型：从门店数据录入、群消息触发、定时任务、云端分析、日报生成，到飞书群回传，已经形成一条完整的 AI 企服落地闭环。
 
-## 本地启动
+---
 
-```bash
+## 1. 这个工具是做什么的？
+
+这个工具帮助小龙虾门店把分散的经营信息，自动整理成老板能直接看的每日经营日报。
+
+它重点解决三件事：
+
+- 把订单、评论、竞品信息集中起来看。
+- 把原始数据变成经营结论和风险提醒。
+- 把老板每天要看的重点，直接推送到飞书群里。
+
+老板不需要登录复杂后台，也不需要懂技术。只要会在群里 @机器人，或者等待系统每天定时推送，就能看到当天经营日报。
+
+---
+
+## 2. 核心亮点
+
+- 老板只需要在飞书群里发一句话，就能拿到当天经营日报。
+- 支持每天定时自动生成并推送经营日报。
+- 数据来自飞书多维表格，店员可以像填表一样维护订单、评论和竞品信息。
+- 日报会自动汇总订单量、销售额、客单价、爆款产品、评论风险和竞品动作。
+- 新增或修改飞书多维表格数据后，再次生成日报，内容会同步更新。
+- 支持「生成今日日报」「你能做什么」「帮助」等常见指令回复。
+- 系统已部署到云服务器，并通过飞书事件订阅实现真实群消息触发。
+- 整条链路已经跑通：飞书群消息 → 云端服务 → 数据读取 → 经营分析 → 日报生成 → 群内回传。
+- 定时任务链路已经跑通：定时触发 → 云端生成日报 → 飞书群自动推送。
+
+---
+
+## 3. 适合谁使用？
+
+这个项目适合：
+
+- 小龙虾门店老板
+- 本地餐饮商家
+- 连锁餐饮区域负责人
+- 想做 AI 自动运营的中小商家
+- 关注 AI 企服落地能力的业务负责人
+- 有一点技术基础，但更关心“能不能解决经营问题”的客户
+
+它尤其适合那些每天都有订单、评论、竞品信息要看，但没有专门数据分析团队的小商家。
+
+---
+
+## 4. 它能解决什么经营问题？
+
+门店老板每天最缺的不是数据，而是能直接指导经营的结论。
+
+这个工具可以帮助老板：
+
+- 不用每天手动汇总订单数据。
+- 不用翻多个平台查看评论和差评。
+- 不用靠感觉判断爆款、销售变化和经营重点。
+- 不用人工整理竞品促销信息。
+- 不用每天主动打开后台查看数据。
+- 在一个飞书群里看到每日经营重点。
+- 快速知道今天哪里卖得好、哪里有风险、明天该做什么。
+
+后续还可以扩展成自动预警、自动备货建议、自动排班建议、自动营销建议，让 AI 从“写日报”进一步变成“辅助经营决策”。
+
+---
+
+## 5. 老板怎么用？
+
+老板的使用方式很简单：
+
+1. 店员或运营人员每天在飞书多维表格中维护订单、评论和竞品信息。
+2. 老板在飞书群里 @小龙虾 AI 日报助手，发送「生成今日日报」。
+3. 系统自动读取数据、生成日报，并发回飞书群。
+4. 老板直接查看日报中的订单、销售额、客单价、爆款、差评、竞品动作和明日建议。
+
+除了手动触发，系统也可以每天在固定时间自动生成并推送日报。
+
+老板也可以在群里 @机器人发送：
+
+- 「你能做什么」
+- 「帮助」
+- 「你会干什么」
+
+系统会返回当前支持的使用说明。
+
+老板看到的不是代码、接口或后台页面，而是一份能直接用于第二天经营安排的日报。
+
+---
+
+## 6. 当前已跑通效果
+
+当前主链路已经跑通：
+
+- 飞书群 @机器人发送「生成今日日报」。
+- 飞书开放平台事件订阅自动推送消息到云服务器。
+- 云端 FastAPI 接收 `/api/feishu/events`。
+- 后端解析 `im.message.receive_v1` 消息事件。
+- 后端读取飞书多维表格真实数据。
+- 系统自动生成小龙虾门店经营日报。
+- 通过飞书机器人 webhook 推送回飞书群。
+- 支持每天定时自动生成并推送经营日报。
+- 在飞书多维表格新增或修改数据后，再次生成日报，日报内容会同步更新。
+- 支持「你能做什么」「帮助」等基础自然语言说明回复。
+
+当前验证数据：
+
+- 订单：58 条
+- 评论：1 条
+- 竞品：1 条
+- 自动化测试：`85 passed`
+
+---
+
+## 7. 日报包含哪些内容？
+
+日报面向老板阅读，重点不是堆数据，而是告诉老板今天发生了什么、哪里需要注意、明天可以怎么做。
+
+日报通常包含：
+
+- 经营概况：订单量、销售额、客单价、整体表现。
+- 商品表现：爆款产品、可能需要关注的产品。
+- 舆情风险：评论反馈、差评风险、服务问题。
+- 竞品观察：竞品促销、竞品热卖品、市场动作。
+- 明日行动建议：备货、排班、主推商品、评论处理建议。
+
+---
+
+## 8. 系统能力拆解
+
+从业务角度看，系统分成几个能力模块：
+
+- 群消息入口：老板在飞书群里发指令，不需要进入后台。
+- 定时推送：支持按固定时间自动生成并推送日报，不需要老板手动触发。
+- 意图识别：识别「生成今日日报」「你能做什么」「帮助」等常见指令。
+- 数据读取：从飞书多维表格读取订单、评论和竞品数据。
+- 数据分析：整理订单表现、评论风险和竞品动态。
+- 日报生成：把分析结果组织成老板能看懂的日报。
+- 消息推送：通过飞书机器人 webhook 把日报发回群里。
+- 数据兜底：本地 JSON 数据可用于开发、演示和异常兜底。
+
+---
+
+## 9. 数据源说明
+
+系统支持两类数据源：
+
+- 飞书多维表格：用于真实经营数据读取，适合门店日常使用。
+- 本地 JSON：用于本地开发、演示或飞书数据不可用时兜底。
+
+当前已经验证飞书多维表格真实数据读取能力。门店新增或修改多维表格里的订单、评论、竞品记录后，再次生成日报，内容会跟着更新。
+
+数据源通过 `.env` 中的 `DATA_SOURCE` 控制：
+
+```env
+DATA_SOURCE=json
+```
+
+表示读取本地 JSON 数据。
+
+```env
+DATA_SOURCE=feishu_bitable
+```
+
+表示读取飞书多维表格数据。
+
+当飞书数据读取失败时，系统会 fallback 到本地 JSON 数据，保证日报链路不会直接中断。
+
+---
+
+## 10. 飞书集成说明
+
+飞书集成包含三条能力：
+
+- 飞书开放平台事件订阅：接收群里 @机器人 的消息事件。
+- 飞书机器人 webhook：把生成好的日报推送回群里。
+- 定时日报推送：由云服务器定时触发日报生成，并推送到飞书群。
+
+当前已接入的事件类型是：
+
+```text
+im.message.receive_v1
+```
+
+当用户在群里 @机器人并发送「生成今日日报」时，飞书会把事件推送到云端接口：
+
+```text
+POST /api/feishu/events
+```
+
+系统接收到事件后，会识别消息内容。如果是「生成今日日报」，系统会生成经营日报；如果是「你能做什么」「帮助」等内容，系统会返回使用说明。
+
+为了安全，飞书事件会校验 `verification token`；机器人推送可以配置签名 `secret`。README 中不会出现真实 token、webhook 或密钥。
+
+---
+
+## 11. 技术架构
+
+技术实现服务于业务闭环，主要组件如下：
+
+- 后端服务：FastAPI
+- 运行服务：Uvicorn
+- 云端部署：腾讯云轻量应用服务器
+- 常驻服务：systemd
+- 定时任务：crontab + 定时日报脚本
+- 数据源层：`DATA_SOURCE` 控制读取飞书多维表格或本地 JSON
+- 飞书事件入口：`POST /api/feishu/events`
+- 飞书机器人推送：webhook 文本消息
+- 大模型能力：OpenRouter / DeepSeek，可用于经营建议生成
+- 兜底机制：当模型输出解析失败或飞书数据不可用时，系统保留 fallback 逻辑
+- 自动化测试：pytest
+
+系统会基于订单、评论和竞品数据生成结构化经营日报；其中经营建议部分可接入 OpenRouter / DeepSeek 模型生成，并保留本地兜底逻辑，保证日报链路稳定输出。
+
+---
+
+## 12. 本地运行方式
+
+### Windows PowerShell
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
-macOS / Linux:
+### macOS / Linux
 
 ```bash
 python3 -m venv .venv
@@ -34,55 +242,169 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-## 访问地址
+本地访问：
 
 - 首页：http://127.0.0.1:8000/
 - 健康检查：http://127.0.0.1:8000/health
 - 接口文档：http://127.0.0.1:8000/docs
 
-## 测试模拟飞书 webhook
+---
 
-```bash
-curl -X POST "http://127.0.0.1:8000/api/webhook/feishu" ^
-  -H "Content-Type: application/json" ^
-  -d "{\"event_id\":\"demo-001\",\"sender\":\"运营小王\",\"chat_id\":\"demo-chat\",\"text\":\"生成今日小龙虾运营日报\"}"
+## 13. 云端部署说明
+
+云端部署时，需要把飞书开放平台事件订阅地址配置到公网可访问的服务地址，例如：
+
+```text
+http://<SERVER_PUBLIC_IP>:8000/api/feishu/events
 ```
 
-macOS / Linux:
+常见部署流程：
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/webhook/feishu" \
-  -H "Content-Type: application/json" \
-  -d '{"event_id":"demo-001","sender":"运营小王","chat_id":"demo-chat","text":"生成今日小龙虾运营日报"}'
+cd /root/xiaolongxia-agent-demo
+git pull
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest
 ```
 
-## 服务器定时生成日报
-
-`POST /api/reports/daily` 用于服务器 crontab 定时触发日报生成和飞书推送。该接口会复用现有日报生成流程，生成日报后写入 `latest_report.json`、追加 `report_history.json`，并推送到飞书群。
-
-生产环境建议在 `.env` 中配置：
+如果使用 `systemd` 托管服务，可以重启并查看状态：
 
 ```bash
-CRON_SECRET=请替换为足够长的随机密钥
+systemctl restart xiaolongxia-demo
+systemctl status xiaolongxia-demo --no-pager
+journalctl -u xiaolongxia-demo -n 100 --no-pager -o cat
 ```
 
-服务器上建议让 crontab 调用脚本，不要在 crontab 里直接写一长串 `curl`。脚本会从 `/root/xiaolongxia-agent-demo/.env` 读取 `CRON_SECRET`，并把执行日志写入 `/root/xiaolongxia-agent-demo/cron_daily_report.log`。
+当前项目已支持每天定时自动生成并推送日报，可通过 crontab 调用定时脚本，例如：
 
 ```bash
 0 22 * * * /bin/bash /root/xiaolongxia-agent-demo/scripts/cron_daily_report.sh
 ```
 
-如果旧 crontab 里还有直接 `curl http://127.0.0.1:8000/api/reports/daily` 的任务，需要替换成上面的脚本调用，避免重复生成和重复推送。
+---
 
-手动检查脚本时可以运行：
+## 14. 环境变量说明
 
-```bash
-/bin/bash /root/xiaolongxia-agent-demo/scripts/cron_daily_report.sh
-tail -n 100 /root/xiaolongxia-agent-demo/cron_daily_report.log
+`.env` 文件只保存在本地或服务器环境中，不应提交到 GitHub。仓库中只保留 `.env.example` 作为配置模板。
+
+以下只列变量名和用途，不包含任何真实密钥、真实 webhook 或真实 token。
+
+```env
+DATA_SOURCE=
+OPENROUTER_API_KEY=
+OPENROUTER_BASE_URL=
+OPENROUTER_MODEL=
+FEISHU_APP_ID=
+FEISHU_APP_SECRET=
+FEISHU_BITABLE_APP_TOKEN=
+FEISHU_ORDERS_TABLE_ID=
+FEISHU_COMMENTS_TABLE_ID=
+FEISHU_COMPETITORS_TABLE_ID=
+FEISHU_VERIFICATION_TOKEN=
+FEISHU_WEBHOOK_URL=
+FEISHU_SECRET=
+DEBUG_API_SECRET=
+CRON_SECRET=
 ```
 
-生产环境必须配置 `CRON_SECRET`。脚本读取不到 `CRON_SECRET` 时会直接失败退出，不会继续请求接口。
+| 变量名 | 用途 |
+| --- | --- |
+| `DATA_SOURCE` | 选择数据源，控制读取飞书多维表格或本地 JSON |
+| `OPENROUTER_API_KEY` | 调用大模型服务的 API Key |
+| `OPENROUTER_BASE_URL` | 大模型服务接口地址 |
+| `OPENROUTER_MODEL` | 日报生成使用的模型名称 |
+| `FEISHU_APP_ID` | 飞书应用 ID |
+| `FEISHU_APP_SECRET` | 飞书应用密钥 |
+| `FEISHU_BITABLE_APP_TOKEN` | 飞书多维表格 app token |
+| `FEISHU_ORDERS_TABLE_ID` | 订单数据表 ID |
+| `FEISHU_COMMENTS_TABLE_ID` | 评论数据表 ID |
+| `FEISHU_COMPETITORS_TABLE_ID` | 竞品数据表 ID |
+| `FEISHU_VERIFICATION_TOKEN` | 飞书事件订阅校验 token |
+| `FEISHU_WEBHOOK_URL` | 飞书机器人 webhook 地址 |
+| `FEISHU_SECRET` | 飞书机器人签名密钥 |
+| `DEBUG_API_SECRET` | 调试接口访问密钥 |
+| `CRON_SECRET` | 定时日报接口访问密钥 |
 
-## 说明
+---
 
-`.env` 已加入 `.gitignore`。如果后续接真实大模型，只能把 API Key 放进本地 `.env`，不要提交到代码仓库。
+## 15. 接口说明
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /` | 首页和基础说明页面 |
+| `GET /health` | 服务健康检查 |
+| `GET /docs` | FastAPI 自动接口文档 |
+| `POST /api/webhook/feishu` | 模拟飞书 webhook，适合本地测试 |
+| `POST /api/feishu/events` | 飞书开放平台事件订阅入口 |
+| `POST /api/reports/daily/generate` | 定时任务或受控环境中触发日报生成 |
+| `GET /api/debug/feishu-bitable/{table_name}` | 查看飞书多维表格原始数据 |
+| `GET /api/debug/feishu-bitable/{table_name}/converted` | 查看转换后的订单、评论或竞品数据 |
+
+调试接口建议只在受控环境中使用，并通过 `DEBUG_API_SECRET` 做访问保护。
+
+---
+
+## 16. 测试结果
+
+当前自动化测试结果：
+
+```text
+python -m pytest
+85 passed
+```
+
+测试覆盖方向包括：
+
+- 首页和健康检查
+- 飞书事件订阅
+- 飞书多维表格读取和转换
+- 数据源切换
+- 日报生成和历史记录
+- 飞书消息推送链路
+- 定时日报触发链路
+
+---
+
+## 17. 当前边界
+
+当前版本是最小可用原型，主要验证“飞书群触发经营日报 + 定时自动推送日报”的完整链路。
+
+目前已支持：
+
+- 飞书群 @机器人生成今日日报
+- 每天定时自动生成并推送日报
+- 读取飞书多维表格订单、评论、竞品数据
+- 自动生成并推送日报
+- 「你能做什么」「帮助」等基础说明回复
+- 本地 JSON 兜底数据源
+- 云端 systemd 常驻运行
+
+暂未完善：
+
+- 多轮追问
+- 多门店账号体系
+- 美团、抖音、小红书等平台自动抓取
+- HTTPS 域名和正式生产级权限管理
+- 更完整的权限分级、日志脱敏和异常告警
+- 更稳定的大模型结构化输出解析
+- 不同门店、不同角色的个性化推送策略
+
+---
+
+## 18. 后续可扩展方向
+
+后续可以继续往真实门店经营场景扩展：
+
+- 自动识别差评并提醒负责人。
+- 根据订单高峰自动生成备货建议。
+- 根据竞品促销自动生成应对策略。
+- 支持按门店、按角色配置不同的日报推送时间和推送内容。
+- 接入更多平台数据，比如美团、抖音、小红书。
+- 支持多门店经营看板。
+- 支持老板用自然语言追问：“今天为什么销售额下降？”
+- 支持日报自动归档，形成经营历史记录。
+- 支持把日报同步到飞书文档或飞书多维表格。
+
+最终目标不是让老板多看一个后台，而是让 AI 主动把每天该看的经营重点，送到老板已经在用的工作群里。
