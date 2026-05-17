@@ -31,28 +31,32 @@ logger = logging.getLogger(__name__)
 MAX_PROCESSED_EVENT_IDS = 500
 LATEST_REPORT_EMPTY_MESSAGE = "暂无日报，请先发送‘生成今日日报’。"
 HELP_COMMANDS_MESSAGE = (
-    "我是小龙虾 AI 日报助手，帮你自动汇总订单、评论和竞品信息，生成每日经营日报和明日行动建议。\n\n"
-    "我可以帮你：\n"
-    "- 看今日订单、销售额、客单价和爆款产品\n"
-    "- 提醒差评、口味反馈、出餐慢等舆情风险\n"
-    "- 整理竞品促销和热卖品\n"
-    "- 给出明日备货、排班、差评回复和主推建议\n"
-    "- 每天 22:00 自动推送日报\n\n"
-    "你可以这样问：\n"
-    "- 今天生意怎么样\n"
-    "- 帮我看下今天经营情况\n"
-    "- 生成今日日报\n"
-    "- 查看最新日报\n"
-    "- 刚才那份日报再发一下"
+    "我可以帮你生成小龙虾门店经营日报。\n\n"
+    "你可以这样使用我：\n"
+    "1. 在群里 @我，发送「生成今日日报」\n"
+    "2. 我会自动读取飞书多维表格里的订单、评论和竞品数据\n"
+    "3. 然后生成经营概况、舆情风险、竞品观察和明日行动建议\n"
+    "4. 最后把日报推送回这个飞书群\n\n"
+    "目前我主要支持：生成今日日报。"
+)
+UNKNOWN_INTENT_MESSAGE = (
+    "我暂时主要支持「生成今日日报」。\n\n"
+    "你可以在群里 @我 发送：\n"
+    "生成今日日报"
 )
 HELP_INTENT_KEYWORDS = (
     "帮助",
     "查看帮助",
+    "你能做什么",
     "你能干什么",
+    "你会干什么",
     "你有什么用",
+    "你是谁",
+    "怎么用",
     "怎么用你",
     "你会什么",
     "使用说明",
+    "功能",
     "help",
 )
 LATEST_REPORT_INTENT_KEYWORDS = (
@@ -186,6 +190,10 @@ def _send_help_commands() -> None:
     send_feishu_text(HELP_COMMANDS_MESSAGE)
 
 
+def _send_unknown_prompt() -> None:
+    send_feishu_text(UNKNOWN_INTENT_MESSAGE)
+
+
 def generate_and_push_daily_report(source: str) -> dict[str, Any]:
     orders = load_orders_data()
     comments = load_comments_data()
@@ -273,7 +281,7 @@ def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
         _send_latest_report()
         result = {"sent": True}
         reply = "已发送最新日报"
-    else:
+    elif intent == "help":
         _send_help_commands()
         result = {
             "supported_commands": [
@@ -283,6 +291,14 @@ def handle_feishu_webhook(payload: FeishuWebhookPayload) -> dict[str, Any]:
             ]
         }
         reply = "已发送帮助说明"
+    else:
+        _send_unknown_prompt()
+        result = {
+            "supported_commands": [
+                "生成今日日报",
+            ]
+        }
+        reply = "已发送兜底提示"
 
     logger.info("FeishuWebhook handled event_id=%s intent=%s", payload.event_id, intent)
     return {
@@ -334,12 +350,12 @@ def handle_feishu_event_subscription(
             generate_and_push_daily_report(source="feishu_event")
         else:
             logger.info(
-                "Feishu event ignored reason=unsupported_text event_id=%s event_type=%s intent=%s",
+                "Feishu event fallback sent reason=unsupported_text event_id=%s event_type=%s intent=%s",
                 event_id or "missing",
                 event_type or "unknown",
                 intent,
             )
-            return {"ok": True, "ignored": True}
+            _send_unknown_prompt()
     except Exception as exc:
         logger.warning(
             "Feishu event sync handling failed event_id=%s error_type=%s",

@@ -5,16 +5,19 @@ from app.core.config import settings
 from app.main import app
 
 
-HELP_MESSAGE_EXPECTED_SNIPPETS = (
-    "我是小龙虾 AI 日报助手",
-    "自动汇总订单、评论和竞品信息",
-    "看今日订单、销售额、客单价和爆款产品",
-    "提醒差评、口味反馈、出餐慢等舆情风险",
-    "整理竞品促销和热卖品",
-    "给出明日备货、排班、差评回复和主推建议",
-    "每天 22:00 自动推送日报",
-    "今天生意怎么样",
-    "刚才那份日报再发一下",
+HELP_MESSAGE_EXPECTED = (
+    "我可以帮你生成小龙虾门店经营日报。\n\n"
+    "你可以这样使用我：\n"
+    "1. 在群里 @我，发送「生成今日日报」\n"
+    "2. 我会自动读取飞书多维表格里的订单、评论和竞品数据\n"
+    "3. 然后生成经营概况、舆情风险、竞品观察和明日行动建议\n"
+    "4. 最后把日报推送回这个飞书群\n\n"
+    "目前我主要支持：生成今日日报。"
+)
+UNKNOWN_MESSAGE_EXPECTED = (
+    "我暂时主要支持「生成今日日报」。\n\n"
+    "你可以在群里 @我 发送：\n"
+    "生成今日日报"
 )
 
 
@@ -23,8 +26,7 @@ def _set_feishu_verification_token(value: str) -> None:
 
 
 def _assert_help_message(message: str) -> None:
-    for snippet in HELP_MESSAGE_EXPECTED_SNIPPETS:
-        assert snippet in message
+    assert message == HELP_MESSAGE_EXPECTED
 
 
 def _post_feishu_text(client: TestClient, event_id: str, text: str):
@@ -335,11 +337,16 @@ def test_feishu_event_sends_help_commands(monkeypatch):
     [
         "帮助",
         "查看帮助",
+        "你能做什么",
         "你能干什么",
+        "你会干什么",
         "你有什么用",
+        "你是谁",
+        "怎么用",
         "怎么用你",
         "你会什么",
         "使用说明",
+        "功能",
         "help",
     ],
 )
@@ -372,6 +379,36 @@ def test_feishu_event_help_intent_keywords(monkeypatch, keyword):
     assert response.json() == {"ok": True, "handled": True}
     assert len(sent_messages) == 1
     _assert_help_message(sent_messages[0])
+
+
+def test_feishu_event_unknown_intent_sends_fallback(monkeypatch):
+    client = TestClient(app)
+    old_token = settings.feishu_verification_token
+    _set_feishu_verification_token("test-token")
+    sent_messages = []
+    monkeypatch.setattr(
+        "app.services.feishu_adapter.send_feishu_text",
+        lambda text: sent_messages.append(text) or True,
+    )
+    monkeypatch.setattr(
+        "app.services.feishu_adapter.generate_and_push_daily_report",
+        lambda source: (_ for _ in ()).throw(
+            AssertionError("unknown intent must not generate report")
+        ),
+    )
+
+    try:
+        response = _post_feishu_text(
+            client,
+            "event-unknown-001",
+            "随便乱问一句",
+        )
+    finally:
+        _set_feishu_verification_token(old_token)
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "handled": True}
+    assert sent_messages == [UNKNOWN_MESSAGE_EXPECTED]
 
 
 @pytest.mark.parametrize(
